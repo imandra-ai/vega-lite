@@ -1,0 +1,17 @@
+
+(env
+  (_ (flags (:standard -warn-error -a+8))))
+
+(executable
+  (name t1)
+  (modules t1)
+  (libraries vega_lite))
+
+(rule
+  (targets t1.vg.json)
+  (action (with-stdout-to %{targets}
+                          (run ./t1.exe))))
+
+(rule
+  (alias runtest)
+  (action (diff t1.expected.json t1.vg.json)))

@@ -1,0 +1,5 @@
+(library
+ (name vega_lite)
+ (synopsis "Generate vega-lite plots")
+ (libraries yojson)
+ (flags :standard -warn-error -a+8))
