@@ -412,24 +412,34 @@ module Param = struct
   type t = {
     name: string;
     value: json option;
-    bind: bind;
+    bind: [`Input of Input.t | `Scales] option;
+    select: Selection.t option;
   }
-  and bind =
-    | Input of Input.t
-    | Select of Selection.t
 
-  let input ~name ?value input : t = {name; value; bind=Input input}
-  let select ~name ?value sel : t = {name; value; bind=Select sel}
+  let input ~name ?value input : t =
+    {name; value; bind=Some (`Input input); select=None}
 
-  let to_json {name;value;bind} : json =
-    let bind_pair = match bind with
-      | Input i -> "bind", Input.to_json i
-      | Select sel -> "select", Selection.to_json sel
+  let select ~name ?value sel : t =
+    {name; value; select=Some sel; bind=None}
+
+  let bind_scales : t =
+    {name="grid"; value=None; select=Some (Selection.interval ());
+     bind=Some `Scales}
+
+  let to_json {name;value;bind;select} : json =
+    let sel_pair = match select with
+      | None -> []
+      | Some sel -> ["select", Selection.to_json sel]
+    and bind_pair = match bind with
+      | Some (`Input i) -> ["bind", Input.to_json i]
+      | Some `Scales -> ["bind", `String "scales"]
+      | None -> []
     in
     let l = List.flatten [
         ["name", `String name;
-         bind_pair;
         ];
+        sel_pair;
+        bind_pair;
         (match value with
          | None -> []
          | Some v -> ["value", v]);

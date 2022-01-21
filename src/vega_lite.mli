@@ -276,6 +276,9 @@ module Param : sig
   (** Selection parameter.
       See https://vega.github.io/vega-lite/docs/selection.html *)
 
+  val bind_scales : t
+  (** Bind selection to scale, to zoom around the plot *)
+
   val to_json : t -> json
 end
 
