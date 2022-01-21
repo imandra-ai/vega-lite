@@ -357,6 +357,11 @@ module Encoding = struct
     `Assoc l
 end
 
+module Config = struct
+  type t = json
+  let json j : t = j
+end
+
 module Viz = struct
   type repeat_binding = {
     var: string;
@@ -372,7 +377,13 @@ module Viz = struct
         layer: string list option;
       }
 
-  type t =
+  type t = {
+    config: Config.t option;
+    width:[`container | `int of int] option;
+    height:[`container | `int of int] option;
+    view: view;
+  }
+  and view =
     | Simple of {
         data: Data.t option;
         mark: Mark.t;
@@ -391,31 +402,45 @@ module Viz = struct
         spec: t;
       }
 
+  (** With options *)
+  type 'a with_config =
+    ?width:[`container | `int of int] ->
+    ?height:[`container | `int of int] ->
+    ?config:Config.t ->
+    'a
+
   let bind ~var l : repeat_binding = {var; values=l}
   let bind_i ~var l = bind ~var (List.map (fun i->`Int i) l)
   let bind_f ~var l = bind ~var (List.map (fun f->`Float f) l)
   let bind_s ~var l = bind ~var (List.map (fun s->`String s) l)
 
-  let repeat ?column ?row ?layer ?bind ~data spec : t =
+  let mk ?width ?height ?config view : t =
+    { width; height; config; view }
+
+  let repeat ?width ?height ?config ?column ?row ?layer ?bind ~data spec : t =
     let is_none = function None -> true | Some _ -> false in
     if is_none column && is_none row && is_none layer && is_none bind then (
       invalid_arg "Viz.repeat: at least one repeating element has to be specified";
     );
     let repeat = R_full {bind; column; row; layer} in
-    Repeat {spec; repeat; data; }
+    mk ?width ?height ?config @@ Repeat {spec; repeat; data; }
 
-  let repeat_simple ~repeat:l ~data spec : t =
+  let repeat_simple ?width ?height ?config ~repeat:l ~data spec : t =
     let l = List.map (fun s -> `String s) l in
     let repeat = R_simple l in
-    Repeat {spec; repeat; data; }
+    mk ?width ?height ?config @@ Repeat {spec; repeat; data; }
 
-  let layer l : t = Layer l
-  let hconcat l = Hconcat l
-  let vconcat l = Vconcat l
-  let concat ~columns l : t = Concat {concat=l; columns}
+  let layer ?width ?height ?config l : t =
+    mk ?width ?height ?config @@ Layer l
+  let hconcat ?width ?height ?config l =
+    mk ?width ?height ?config @@ Hconcat l
+  let vconcat ?width ?height ?config l =
+      mk ?width ?height ?config @@ Vconcat l
+  let concat ?width ?height ?config ~columns l : t =
+    mk ?width ?height ?config @@ Concat {concat=l; columns}
 
-  let make ~data ~mark ?encoding () : t =
-    Simple { data=Some data; mark; encoding; }
+  let make ?width ?height ?config ~data ~mark ?encoding () : t =
+    mk ?width ?height ?config @@ Simple { data=Some data; mark; encoding; }
 
   let json_of_repeat (r:repeat_spec) : json =
     match r with
@@ -439,9 +464,23 @@ module Viz = struct
       `Assoc l
 
   let rec to_json (self:t) : json =
-    match self with
-    | Simple {mark; data; encoding} ->
-      let l = List.flatten [
+    let conf = List.flatten [
+        (match self.width with
+         | Some (`container) -> ["width", `String "container"]
+         | Some (`int i) -> ["width", `Int i]
+         | None -> []);
+        (match self.height with
+         | Some (`container) -> ["height", `String "container"]
+         | Some (`int i) -> ["height", `Int i]
+         | None -> []);
+        (match self.config with
+         | None -> []
+         | Some j -> ["config", j]);
+      ]
+    in
+    let rest = match self.view with
+      | Simple {mark; data; encoding} ->
+        List.flatten [
           ["$schema", `String "https://vega.github.io/schema/vega-lite/v5.json";
            "mark", Mark.to_json mark;
           ];
@@ -451,27 +490,28 @@ module Viz = struct
           (match data with
            | None -> []
            | Some d -> ["data", Data.to_json d]);
-        ] in
-      `Assoc l
+        ]
 
-    | Layer l ->
-      `Assoc ["layer", `List (List.map to_json l)]
+      | Layer l ->
+        ["layer", `List (List.map to_json l)]
 
-    | Hconcat l ->
-      `Assoc ["hconcat", `List (List.map to_json l)]
+      | Hconcat l ->
+        ["hconcat", `List (List.map to_json l)]
 
-    | Vconcat l ->
-      `Assoc ["vconcat", `List (List.map to_json l)]
+      | Vconcat l ->
+        ["vconcat", `List (List.map to_json l)]
 
-    | Concat {concat=l; columns} ->
-      `Assoc ["concat", `List (List.map to_json l); "columns", `Int columns]
+      | Concat {concat=l; columns} ->
+        ["concat", `List (List.map to_json l); "columns", `Int columns]
 
-    | Repeat {data; repeat; spec} ->
-      `Assoc [
-        "data", Data.to_json data;
-        "repeat", json_of_repeat repeat;
-        "spec", to_json spec;
-      ]
+      | Repeat {data; repeat; spec} ->
+        [
+          "data", Data.to_json data;
+          "repeat", json_of_repeat repeat;
+          "spec", to_json spec;
+        ]
+    in
+    `Assoc (List.rev_append conf rest)
 
   let to_json_str self = Yojson.Basic.pretty_to_string @@ to_json self
 

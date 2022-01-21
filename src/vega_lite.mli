@@ -226,6 +226,12 @@ module Encoding : sig
   val to_json : t -> json
 end
 
+module Config : sig
+  type t
+
+  val json : json -> t
+end
+
 (** A (toplevel) visualization of data using a mark and encodings *)
 module Viz : sig
   type repeat_binding = {
@@ -238,25 +244,32 @@ module Viz : sig
   (** The main visualization type. *)
   type t
 
+  (** With options *)
+  type 'a with_config =
+    ?width:[`container | `int of int] ->
+    ?height:[`container | `int of int] ->
+    ?config:Config.t ->
+    'a
+
   val make :
-    data:Data.t ->
-    mark:Mark.t ->
-    ?encoding:Encoding.t ->
-    unit ->
-    t
+    (data:Data.t ->
+     mark:Mark.t ->
+     ?encoding:Encoding.t ->
+     unit ->
+     t) with_config
   (** Make a simple visualization. It can then be composed, if desired,
       using {!layer} or {!repeat}. *)
 
-  val layer : t list -> t
+  val layer : (t list -> t) with_config
   (** Superpose visualizations *)
 
-  val hconcat : t list -> t
+  val hconcat : (t list -> t) with_config
   (** Horizontal concatenation *)
 
-  val vconcat : t list -> t
+  val vconcat : (t list -> t) with_config
   (** Vertical concatenation *)
 
-  val concat : columns:int -> t list -> t
+  val concat : (columns:int -> t list -> t) with_config
   (** General concatenation *)
 
   val bind : var:string -> json list -> repeat_binding
@@ -267,16 +280,17 @@ module Viz : sig
   (** Repeat a visualization across layers, values, columns, rows, or
       bindings *)
   val repeat :
-    ?column:string list ->
-    ?row:string list ->
-    ?layer:string list ->
-    ?bind:repeat_binding list ->
-    data:Data.t ->
-    t -> t
+    (?column:string list ->
+     ?row:string list ->
+     ?layer:string list ->
+     ?bind:repeat_binding list ->
+     data:Data.t ->
+     t -> t) with_config
 
   (** Repeat a simple list of values. To use these in the spec,
       use {!Encoding.field_repeat}. *)
-  val repeat_simple : repeat:string list -> data:Data.t -> t -> t
+  val repeat_simple :
+    (repeat:string list -> data:Data.t -> t -> t) with_config
 
   val to_json : t -> json
 
