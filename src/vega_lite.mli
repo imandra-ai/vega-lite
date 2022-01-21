@@ -226,10 +226,65 @@ module Encoding : sig
   val to_json : t -> json
 end
 
+(** User input. *)
+module Input : sig
+  type t
+
+  val range : min:int -> max:int -> ?step:int -> unit -> t
+
+  val select : json list -> t
+  val select_str : string list -> t
+
+  val checkbox : t
+
+  val radio : string list -> t
+
+  val to_json : t -> json
+end
+
+(** User selection.
+
+    https://vega.github.io/vega-lite/docs/selection.html
+*)
+module Selection : sig
+  type t
+
+  (* TODO: fields, encodings, etc. *)
+
+  val point : ?on:[`mouseover] -> unit -> t
+  (** Select discret values *)
+
+  val interval : unit -> t
+  (** Continuous range *)
+
+  val to_json : t -> json
+end
+
+(** Parameters.
+
+    Parameters provide dynamic behavior based on user input (for example,
+    selection).
+
+    https://vega.github.io/vega-lite/docs/parameter.html *)
+module Param : sig
+  type t
+
+  val input : name:string -> ?value:json -> Input.t -> t
+  (** Parameter bound to an input *)
+
+  val select : name:string -> ?value:json -> Selection.t -> t
+  (** Selection parameter.
+      See https://vega.github.io/vega-lite/docs/selection.html *)
+
+  val to_json : t -> json
+end
+
+(** Configuration *)
 module Config : sig
   type t
 
   val json : json -> t
+  val to_json : t -> json
 end
 
 (** A (toplevel) visualization of data using a mark and encodings *)
@@ -249,6 +304,7 @@ module Viz : sig
     ?width:[`container | `int of int] ->
     ?height:[`container | `int of int] ->
     ?config:Config.t ->
+    ?params:Param.t list ->
     'a
 
   val make :

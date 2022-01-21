@@ -357,9 +357,91 @@ module Encoding = struct
     `Assoc l
 end
 
+module Input = struct
+  type t =
+    | Range of {
+        min: int;
+        max: int;
+        step: int;
+      }
+    | Select of json list
+    | Checkbox
+    | Radio of json list
+
+  let range ~min ~max ?(step=1) () : t =
+    Range {min; max; step}
+
+  let select l = Select l
+  let select_str l = select (List.map (fun s -> `String s) l)
+  let checkbox = Checkbox
+  let radio l = Radio (List.map (fun s -> `String s) l)
+
+  let to_json = function
+    | Range {min;max;step} ->
+      `Assoc ["type", `String "range"; "min", `Int min; "max", `Int max; "step", `Int step]
+    | Select l -> `Assoc ["type", `String "select"; "options", `List l]
+    | Checkbox -> `Assoc ["type", `String "checkbox"]
+    | Radio l -> `Assoc ["type", `String "radio"; "options", `List l]
+end
+
+module Selection = struct
+  type t =
+    | Point of {
+        on: [`mouseover] option;
+      }
+    | Interval
+
+  let point ?on () : t = Point {on}
+  let interval () : t = Interval
+  let to_json = function
+    | Point{on} ->
+      `Assoc
+        (["type", `String "point"] @
+         (match on with None -> [] | Some `mouseover -> ["on", `String "mouseover"]))
+    | Interval ->
+      `Assoc ["type", `String "interval"]
+end
+
+(** Parameters.
+
+    Parameters provide dynamic behavior based on user input (for example,
+    selection).
+
+    https://vega.github.io/vega-lite/docs/parameter.html *)
+module Param = struct
+  type t = {
+    name: string;
+    value: json option;
+    bind: bind;
+  }
+  and bind =
+    | Input of Input.t
+    | Select of Selection.t
+
+  let input ~name ?value input : t = {name; value; bind=Input input}
+  let select ~name ?value sel : t = {name; value; bind=Select sel}
+
+  let to_json {name;value;bind} : json =
+    let bind_pair = match bind with
+      | Input i -> "bind", Input.to_json i
+      | Select sel -> "select", Selection.to_json sel
+    in
+    let l = List.flatten [
+        ["name", `String name;
+         bind_pair;
+        ];
+        (match value with
+         | None -> []
+         | Some v -> ["value", v]);
+      ] in
+    `Assoc l
+end
+
+
 module Config = struct
   type t = json
   let json j : t = j
+  let to_json j = j
 end
 
 module Viz = struct
@@ -381,6 +463,7 @@ module Viz = struct
     config: Config.t option;
     width:[`container | `int of int] option;
     height:[`container | `int of int] option;
+    params: Param.t list option;
     view: view;
   }
   and view =
@@ -407,6 +490,7 @@ module Viz = struct
     ?width:[`container | `int of int] ->
     ?height:[`container | `int of int] ->
     ?config:Config.t ->
+    ?params:Param.t list ->
     'a
 
   let bind ~var l : repeat_binding = {var; values=l}
@@ -414,33 +498,33 @@ module Viz = struct
   let bind_f ~var l = bind ~var (List.map (fun f->`Float f) l)
   let bind_s ~var l = bind ~var (List.map (fun s->`String s) l)
 
-  let mk ?width ?height ?config view : t =
-    { width; height; config; view }
+  let mk ?width ?height ?config ?params view : t =
+    { width; height; config; params; view }
 
-  let repeat ?width ?height ?config ?column ?row ?layer ?bind ~data spec : t =
+  let repeat ?width ?height ?config ?params ?column ?row ?layer ?bind ~data spec : t =
     let is_none = function None -> true | Some _ -> false in
     if is_none column && is_none row && is_none layer && is_none bind then (
       invalid_arg "Viz.repeat: at least one repeating element has to be specified";
     );
     let repeat = R_full {bind; column; row; layer} in
-    mk ?width ?height ?config @@ Repeat {spec; repeat; data; }
+    mk ?width ?height ?config ?params @@ Repeat {spec; repeat; data; }
 
-  let repeat_simple ?width ?height ?config ~repeat:l ~data spec : t =
+  let repeat_simple ?width ?height ?config ?params ~repeat:l ~data spec : t =
     let l = List.map (fun s -> `String s) l in
     let repeat = R_simple l in
-    mk ?width ?height ?config @@ Repeat {spec; repeat; data; }
+    mk ?width ?height ?config ?params @@ Repeat {spec; repeat; data; }
 
-  let layer ?width ?height ?config l : t =
-    mk ?width ?height ?config @@ Layer l
-  let hconcat ?width ?height ?config l =
-    mk ?width ?height ?config @@ Hconcat l
-  let vconcat ?width ?height ?config l =
-      mk ?width ?height ?config @@ Vconcat l
-  let concat ?width ?height ?config ~columns l : t =
-    mk ?width ?height ?config @@ Concat {concat=l; columns}
+  let layer ?width ?height ?config ?params l : t =
+    mk ?width ?height ?config ?params @@ Layer l
+  let hconcat ?width ?height ?config ?params l =
+    mk ?width ?height ?config ?params @@ Hconcat l
+  let vconcat ?width ?height ?config ?params l =
+      mk ?width ?height ?config ?params @@ Vconcat l
+  let concat ?width ?height ?config ?params ~columns l : t =
+    mk ?width ?height ?config ?params @@ Concat {concat=l; columns}
 
-  let make ?width ?height ?config ~data ~mark ?encoding () : t =
-    mk ?width ?height ?config @@ Simple { data=Some data; mark; encoding; }
+  let make ?width ?height ?config ?params ~data ~mark ?encoding () : t =
+    mk ?width ?height ?config ?params @@ Simple { data=Some data; mark; encoding; }
 
   let json_of_repeat (r:repeat_spec) : json =
     match r with
@@ -476,6 +560,9 @@ module Viz = struct
         (match self.config with
          | None -> []
          | Some j -> ["config", j]);
+        (match self.params with
+         | None -> []
+         | Some p -> ["params", `List(List.map Param.to_json p)]);
       ]
     in
     let rest = match self.view with
