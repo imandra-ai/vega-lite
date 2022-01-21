@@ -236,18 +236,7 @@ module Viz : sig
   type repeat_spec
 
   (** The main visualization type. *)
-  type t =
-    | Simple of {
-        data: Data.t option;
-        mark: Mark.t;
-        encoding: Encoding.t option;
-      }
-    | Layer of t list
-    | Repeat of {
-        data: Data.t;
-        repeat: repeat_spec;
-        spec: t;
-      }
+  type t
 
   val make :
     data:Data.t ->
@@ -260,6 +249,15 @@ module Viz : sig
 
   val layer : t list -> t
   (** Superpose visualizations *)
+
+  val hconcat : t list -> t
+  (** Horizontal concatenation *)
+
+  val vconcat : t list -> t
+  (** Vertical concatenation *)
+
+  val concat : columns:int -> t list -> t
+  (** General concatenation *)
 
   val bind : var:string -> json list -> repeat_binding
   val bind_i : var:string -> int list -> repeat_binding

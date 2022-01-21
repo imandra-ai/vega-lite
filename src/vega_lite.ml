@@ -379,6 +379,12 @@ module Viz = struct
         encoding: Encoding.t option;
       }
     | Layer of t list
+    | Hconcat of t list
+    | Vconcat of t list
+    | Concat of {
+        concat: t list;
+        columns: int;
+      }
     | Repeat of {
         data: Data.t;
         repeat: repeat_spec;
@@ -404,6 +410,9 @@ module Viz = struct
     Repeat {spec; repeat; data; }
 
   let layer l : t = Layer l
+  let hconcat l = Hconcat l
+  let vconcat l = Vconcat l
+  let concat ~columns l : t = Concat {concat=l; columns}
 
   let make ~data ~mark ?encoding () : t =
     Simple { data=Some data; mark; encoding; }
@@ -412,6 +421,7 @@ module Viz = struct
     match r with
     | R_simple l ->
       `Assoc ["repeat", `List l]
+
     | R_full {column; row; layer; bind; } ->
       let js_binding (r:repeat_binding) : _ * json = r.var, `List r.values in
       let js_strl name = function
@@ -443,8 +453,19 @@ module Viz = struct
            | Some d -> ["data", Data.to_json d]);
         ] in
       `Assoc l
+
     | Layer l ->
       `Assoc ["layer", `List (List.map to_json l)]
+
+    | Hconcat l ->
+      `Assoc ["hconcat", `List (List.map to_json l)]
+
+    | Vconcat l ->
+      `Assoc ["vconcat", `List (List.map to_json l)]
+
+    | Concat {concat=l; columns} ->
+      `Assoc ["concat", `List (List.map to_json l); "columns", `Int columns]
+
     | Repeat {data; repeat; spec} ->
       `Assoc [
         "data", Data.to_json data;
