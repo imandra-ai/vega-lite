@@ -5,7 +5,7 @@
 (executable
   (name t1)
   (modules t1)
-  (libraries vega_lite))
+  (libraries vega-lite))
 
 (rule
   (targets t1.vg.json)
