@@ -11,6 +11,12 @@ let () =
     )
   in
   let mark = Mark.line in
-  let viz = Viz.make ~data ~mark () in
+  let encoding = Encoding.(
+      [field `x ~name:"x" ~type_:`quantitative ~title:"the xs are here" ();
+       field `y ~name:"y" ~type_:`quantitative ~title:"y no float" ();
+      ]
+    )
+  in
+  let viz = Viz.make ~data ~mark ~encoding () in
   print_endline @@ Viz.to_json_str viz
 

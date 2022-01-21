@@ -1,13 +1,44 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "x",
+      "bin": false,
+      "type": "quantitative",
+      "title": "the xs are here"
+    },
+    "y": {
+      "field": "y",
+      "bin": false,
+      "type": "quantitative",
+      "title": "y no float"
+    }
+  },
   "data": {
     "values": [
-      { "x": 1, "y": 1.0 },
-      { "x": 2, "y": 2.5 },
-      { "x": 3, "y": 0.1 }
+      { "x": 0, "y": 0.2 },
+      { "x": 1, "y": 1.2 },
+      { "x": 2, "y": 2.2 },
+      { "x": 3, "y": 0.2 },
+      { "x": 4, "y": 1.2 },
+      { "x": 5, "y": 2.2 },
+      { "x": 6, "y": 0.2 },
+      { "x": 7, "y": 1.2 },
+      { "x": 8, "y": 2.2 },
+      { "x": 9, "y": 0.2 },
+      { "x": 10, "y": 1.2 },
+      { "x": 11, "y": 2.2 },
+      { "x": 12, "y": 0.2 },
+      { "x": 13, "y": 1.2 },
+      { "x": 14, "y": 2.2 },
+      { "x": 15, "y": 0.2 },
+      { "x": 16, "y": 1.2 },
+      { "x": 17, "y": 2.2 },
+      { "x": 18, "y": 0.2 },
+      { "x": 19, "y": 1.2 }
     ],
     "name": "d1",
     "format": null
-  },
-  "mark": "line"
+  }
 }
