@@ -118,11 +118,21 @@ module Mark : sig
   val to_json : t -> json
 end
 
+(** Encoding data into the channels expected by the chosen {!Mark.t}.
+
+    For examples, {!Mark.line} expects channels for "x" and "y" to be defined
+    and bound to numerical data. *)
 module Encoding : sig
   type channel = [
     | `x | `y | `x2 | `y2
     | `xError | `yError | `xError2 | `yError2
     | `xOffset | `yOffset
+    | `theta | `theta2 | `radius | `radius2
+    | `longitude | `latitude | `longitude2 | `latitude2
+    | `angle | `color | `fill | `stroke | `opacity | `fillopacity
+    | `strokeOpacity | `shape | `size | `strokeDash | `strokeWidth
+    | `text | `tooltip | `href | `description
+    | `detail | `order | `facet | `row | `column
     | `other of string
   ]
 
@@ -133,8 +143,8 @@ module Encoding : sig
     | `temporal
     | `ordinal
     | `nominal
+    | `geojson
     | `other of json
-  (* TODO: geojson *)
   ]
 
   type scale = [
@@ -160,11 +170,11 @@ module Encoding : sig
 
   type field_def = {
     field: [`Field of string | `Repeat of string];
-    type_: field_type;
+    type_: field_type option;
     bin: bin;
     aggregate: aggregate option;
     title: string option;
-    scale: scale option; (* TODO *)
+    scale: scale option;
   }
 
   type value = json
@@ -172,7 +182,6 @@ module Encoding : sig
 
   type definition = [
     | `Field of field_def
-    | `Field_repeat of string
     | `Value of value
     | `Datum of datum
   ]
@@ -181,32 +190,64 @@ module Encoding : sig
 
   type t = channel_def list
 
-  val field :
+  (** Common parameters to define fields *)
+  type 'a field_builder =
     channel ->
     ?bin:bin ->
+    ?scale:scale ->
     ?title:string ->
     ?aggregate:aggregate ->
-    name:string ->
-    type_:field_type ->
-    unit -> channel_def
+    'a
 
-  val field_repeat : channel -> string -> channel_def
+  (** A field, with a name and type, typically binding a field
+      in the data source. *)
+  val field :
+    (name:string ->
+     type_:field_type ->
+     unit -> channel_def) field_builder
+
+  val field_repeat_var :
+    (string -> channel_def) field_builder
+  (** Use the value of the given repeated variable (see {!Viz}) *)
+
+  val field_repeat : (unit -> channel_def) field_builder
+  (** Same as [field_repeat_var "repeat"] *)
 
   val datum : channel -> datum -> channel_def
   val datum_i : channel -> int -> channel_def
   val datum_f : channel -> float -> channel_def
   val datum_s : channel -> string -> channel_def
 
+  val value : channel -> datum -> channel_def
+  val value_i : channel -> int -> channel_def
+  val value_f : channel -> float -> channel_def
+  val value_s : channel -> string -> channel_def
+
   val to_json : t -> json
 end
 
 (** A (toplevel) visualization of data using a mark and encodings *)
 module Viz : sig
-  type t = {
-    data: Data.t;
-    mark: Mark.t;
-    encoding: Encoding.t option;
+  type repeat_binding = {
+    var: string;
+    values: json list;
   }
+
+  type repeat_spec
+
+  (** The main visualization type. *)
+  type t =
+    | Simple of {
+        data: Data.t option;
+        mark: Mark.t;
+        encoding: Encoding.t option;
+      }
+    | Layer of t list
+    | Repeat of {
+        data: Data.t;
+        repeat: repeat_spec;
+        spec: t;
+      }
 
   val make :
     data:Data.t ->
@@ -214,7 +255,36 @@ module Viz : sig
     ?encoding:Encoding.t ->
     unit ->
     t
+  (** Make a simple visualization. It can then be composed, if desired,
+      using {!layer} or {!repeat}. *)
+
+  val layer : t list -> t
+  (** Superpose visualizations *)
+
+  val bind : var:string -> json list -> repeat_binding
+  val bind_i : var:string -> int list -> repeat_binding
+  val bind_f : var:string -> float list -> repeat_binding
+  val bind_s : var:string -> string list -> repeat_binding
+
+  (** Repeat a visualization across layers, values, columns, rows, or
+      bindings *)
+  val repeat :
+    ?column:string list ->
+    ?row:string list ->
+    ?layer:string list ->
+    ?bind:repeat_binding list ->
+    data:Data.t ->
+    t -> t
+
+  (** Repeat a simple list of values. To use these in the spec,
+      use {!Encoding.field_repeat}. *)
+  val repeat_simple : repeat:string list -> data:Data.t -> t -> t
 
   val to_json : t -> json
+
   val to_json_str : t -> string
+  (** Turn into JSON, and then into a pretty-printed json string. *)
+
+  val to_json_file : t -> file:string -> unit
+  (** Gets a string using {!to_json_str} and then writes it to file [file] *)
 end

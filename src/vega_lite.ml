@@ -163,16 +163,50 @@ module Encoding = struct
     | `x | `y | `x2 | `y2
     | `xError | `yError | `xError2 | `yError2
     | `xOffset | `yOffset
+    | `theta | `theta2 | `radius | `radius2
+    | `longitude | `latitude | `longitude2 | `latitude2
+    | `angle | `color | `fill | `stroke | `opacity | `fillopacity
+    | `strokeOpacity | `shape | `size | `strokeDash | `strokeWidth
+    | `text | `tooltip | `href | `description
+    | `detail | `order | `facet | `row | `column
     | `other of string
   ]
 
-  let json_chan (c:channel) =
-    `String (match c with
+  let str_of_chan (c:channel) =
+    match c with
     | `other s -> s
     | `x -> "x" | `y -> "y" | `x2 -> "x2" | `y2 -> "y2"
     | `xError -> "xError" | `yError -> "yError"
     | `xError2 -> "xError2" | `yError2 -> "yError2"
-    | `xOffset -> "xOffset" | `yOffset -> "yOffset")
+    | `xOffset -> "xOffset" | `yOffset -> "yOffset"
+    | `theta -> "theta"
+    | `theta2 -> "theta2"
+    | `radius -> "radius"
+    | `radius2 -> "radius2"
+    | `longitude -> "longitude"
+    | `latitude -> "latitude"
+    | `longitude2 -> "longitude2"
+    | `latitude2 -> "latitude2"
+    | `angle -> "angle"
+    | `color -> "color"
+    | `fill -> "fill"
+    | `stroke -> "stroke"
+    | `opacity -> "opacity"
+    | `fillopacity -> "fillopacity"
+    | `strokeOpacity -> "strokeOpacity"
+    | `shape -> "shape"
+    | `size -> "size"
+    | `strokeDash -> "strokeDash"
+    | `strokeWidth -> "strokeWidth"
+    | `text -> "text"
+    | `tooltip -> "tooltip"
+    | `href -> "href"
+    | `description -> "description"
+    | `detail -> "detail"
+    | `order -> "order"
+    | `facet -> "facet"
+    | `row -> "row"
+    | `column -> "column"
 
   (** Type for a field.
       See https://vega.github.io/vega-lite/docs/encoding.html *)
@@ -181,29 +215,46 @@ module Encoding = struct
     | `temporal
     | `ordinal
     | `nominal
+    | `geojson
     | `other of json
-  (* TODO: geojson *)
   ]
 
-  let json_field_type  : field_type -> json = function
+  let json_of_field_type : field_type -> json = function
     | `quantitative -> `String "quantitative"
     | `temporal -> `String "temporal"
     | `ordinal -> `String "ordinal"
     | `nominal -> `String "nominal"
+    | `geojson -> `String "geojson"
     | `other j -> j
 
   type scale = [
     | `other of json
   ]
 
+  let json_of_scale : scale -> json = function
+    | `other j -> j
+
   type bin = [
     | `bool of bool
     | `binned (** already binned *)
   ]
 
+  let json_of_bin : bin -> json = function
+    | `bool b -> `Bool b
+    | `binned -> `String "binned"
+
   type aggregate = [
     | `mean | `sum | `median | `min | `max | `count | `other of json
   ]
+
+  let json_of_aggregate : aggregate -> json = function
+    | `mean -> `String "mean"
+    | `sum -> `String "sum"
+    | `median -> `String "median"
+    | `min -> `String "min"
+    | `max -> `String "max"
+    | `count -> `String "count"
+    | `other j -> j
 
   (* TODO: timeUnit *)
   (* TODO: axis *)
@@ -215,11 +266,11 @@ module Encoding = struct
 
   type field_def = {
     field: [`Field of string | `Repeat of string];
-    type_: field_type;
+    type_: field_type option;
     bin: bin;
     aggregate: aggregate option;
     title: string option;
-    scale: scale option; (* TODO *)
+    scale: scale option;
   }
 
   type value = json
@@ -227,52 +278,185 @@ module Encoding = struct
 
   type definition = [
     | `Field of field_def
-    | `Field_repeat of string
     | `Value of value
     | `Datum of datum
   ]
 
-  type channel_def
+  type channel_def = {
+    channel: channel;
+    def: definition;
+  }
 
   type t = channel_def list
 
-  val field :
+  type 'a field_builder =
     channel ->
     ?bin:bin ->
+    ?scale:scale ->
     ?title:string ->
     ?aggregate:aggregate ->
-    name:string ->
-    type_:field_type ->
-    unit -> channel_def
+    'a
 
-  val field_repeat : channel -> string -> channel_def
+  let field_ channel ?(bin=`bool false) ?scale ?title
+      ?aggregate ~field ~type_ () : channel_def =
+    { channel; def=`Field {bin;title;aggregate;scale;field;type_}; }
 
-  val datum : channel -> datum -> channel_def
-  val datum_i : channel -> int -> channel_def
-  val datum_f : channel -> float -> channel_def
-  val datum_s : channel -> string -> channel_def
+  let field
+      channel ?bin ?scale ?title ?aggregate ~name ~type_ () : channel_def =
+    field_ channel ?bin ?scale ?title ?aggregate
+      ~field:(`Field name) ~type_:(Some type_) ()
 
-  val to_json : t -> json
+  let field_repeat_var
+      channel ?bin ?scale ?title ?aggregate name : channel_def =
+    field_ channel ?bin ?scale ?title ?aggregate
+      ~field:(`Repeat name) ~type_:None ()
+
+  let field_repeat
+      channel ?bin ?scale ?title ?aggregate () : channel_def =
+    field_ channel ?bin ?scale ?title ?aggregate
+      ~field:(`Repeat "repeat") ~type_:None ()
+
+  let datum channel d : channel_def =
+    { channel; def=`Datum d; }
+  let datum_i c i = datum c (`Int i)
+  let datum_f c f = datum c (`Float f)
+  let datum_s c s = datum c (`String s)
+
+  let value channel d : channel_def =
+    { channel; def=`Value d; }
+  let value_i c i = value c (`Int i)
+  let value_f c f = value c (`Float f)
+  let value_s c s = value c (`String s)
+
+  let json_of_chan_def (c:channel_def) : string * json =
+    let def = match c.def with
+      | `Value v -> `Assoc ["value", v]
+      | `Datum v -> `Assoc ["datum", v]
+      | `Field f ->
+        let {field; type_; bin; scale; title; aggregate } = f in
+        let l = List.flatten [
+            ["field", (match field with
+              | `Field s -> `String s
+              | `Repeat s -> `Assoc ["repeat", `String s]);
+             "bin", json_of_bin bin;
+            ];
+            (match scale with None -> [] | Some s -> ["scale", json_of_scale s]);
+            (match type_ with
+             | None -> [] | Some t -> ["type", json_of_field_type t]);
+            (match title with None -> [] | Some s -> ["title", `String s]);
+            (match aggregate with
+             | None -> [] | Some s -> ["aggregate", json_of_aggregate s]);
+          ] in
+        `Assoc l
+    in
+    let c = str_of_chan c.channel in
+    c, def
+
+  let to_json (self:t) : json =
+    let l = List.map json_of_chan_def self in
+    `Assoc l
 end
 
 module Viz = struct
-  type t = {
-    data: Data.t;
-    mark: Mark.t;
+  type repeat_binding = {
+    var: string;
+    values: json list;
   }
 
-  let make ~data ~mark () : t =
-    { data; mark; }
+  type repeat_spec =
+    | R_simple of json list
+    | R_full of {
+        bind: repeat_binding list option;
+        column: string list option;
+        row: string list option;
+        layer: string list option;
+      }
 
+  type t =
+    | Simple of {
+        data: Data.t option;
+        mark: Mark.t;
+        encoding: Encoding.t option;
+      }
+    | Layer of t list
+    | Repeat of {
+        data: Data.t;
+        repeat: repeat_spec;
+        spec: t;
+      }
 
-  let to_json (self:t) : json =
-    `Assoc [
-      "$schema", `String "https://vega.github.io/schema/vega-lite/v5.json";
-      "data", Data.to_json self.data;
-      "mark", Mark.to_json self.mark;
-    ]
+  let bind ~var l : repeat_binding = {var; values=l}
+  let bind_i ~var l = bind ~var (List.map (fun i->`Int i) l)
+  let bind_f ~var l = bind ~var (List.map (fun f->`Float f) l)
+  let bind_s ~var l = bind ~var (List.map (fun s->`String s) l)
+
+  let repeat ?column ?row ?layer ?bind ~data spec : t =
+    let is_none = function None -> true | Some _ -> false in
+    if is_none column && is_none row && is_none layer && is_none bind then (
+      invalid_arg "Viz.repeat: at least one repeating element has to be specified";
+    );
+    let repeat = R_full {bind; column; row; layer} in
+    Repeat {spec; repeat; data; }
+
+  let repeat_simple ~repeat:l ~data spec : t =
+    let l = List.map (fun s -> `String s) l in
+    let repeat = R_simple l in
+    Repeat {spec; repeat; data; }
+
+  let layer l : t = Layer l
+
+  let make ~data ~mark ?encoding () : t =
+    Simple { data=Some data; mark; encoding; }
+
+  let json_of_repeat (r:repeat_spec) : json =
+    match r with
+    | R_simple l ->
+      `Assoc ["repeat", `List l]
+    | R_full {column; row; layer; bind; } ->
+      let js_binding (r:repeat_binding) : _ * json = r.var, `List r.values in
+      let js_strl name = function
+        | None -> []
+        | Some l -> [name, `List (List.map (fun s->`String s) l)]
+      in
+      let l = List.flatten [
+          js_strl "column" column;
+          js_strl "row" row;
+          js_strl "layer" layer;
+          (match bind with
+           | None -> []
+           | Some l -> List.map js_binding l);
+        ] in
+      `Assoc l
+
+  let rec to_json (self:t) : json =
+    match self with
+    | Simple {mark; data; encoding} ->
+      let l = List.flatten [
+          ["$schema", `String "https://vega.github.io/schema/vega-lite/v5.json";
+           "mark", Mark.to_json mark;
+          ];
+          (match encoding with
+           | None -> []
+           | Some e -> ["encoding", Encoding.to_json e]);
+          (match data with
+           | None -> []
+           | Some d -> ["data", Data.to_json d]);
+        ] in
+      `Assoc l
+    | Layer l ->
+      `Assoc ["layer", `List (List.map to_json l)]
+    | Repeat {data; repeat; spec} ->
+      `Assoc [
+        "data", Data.to_json data;
+        "repeat", json_of_repeat repeat;
+        "spec", to_json spec;
+      ]
 
   let to_json_str self = Yojson.Basic.pretty_to_string @@ to_json self
+
+  let to_json_file self ~file =
+    let j = to_json self in
+    Yojson.Basic.to_file file j
 end
 
 (* check compat with yojson *)
