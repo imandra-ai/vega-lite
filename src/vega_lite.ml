@@ -59,6 +59,19 @@ module Values = struct
       | String a -> Array.length a
   end
 
+  module Row = struct
+    type t = (string * json) list
+
+    let empty = []
+    let int x v l : t = (x,`Int v) :: l
+    let float x v l : t = (x,`Float v) :: l
+    let string x v l : t = (x,`String v) :: l
+    let to_json self = `Assoc self
+  end
+
+  let rows arr = `Array (Array.map Row.to_json arr)
+  let rows_l l = rows @@ Array.of_list l
+
   let[@inline] f2j f = `Float f
   let[@inline] i2j x = `Int x
   let[@inline] s2j s = `String s

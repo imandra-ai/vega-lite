@@ -58,6 +58,24 @@ module Values : sig
   (** Pack columns with their associated name.
       @raise Invalid_argument if columns don't have the same length *)
 
+  (** Row oriented API.
+
+      Each row is a record of values (encoded to a json object).
+      An example of use would be [Row.(empty |> int "x" 1 |> float "y" 2.)] *)
+  module Row : sig
+    type t
+
+    val empty : t
+    val int : string -> int -> t -> t
+    val float : string -> float -> t -> t
+    val string  : string -> string -> t -> t
+    val to_json : t -> json
+  end
+
+  val rows : Row.t array -> t
+
+  val rows_l : Row.t list -> t
+
   val custom : json -> t
 
   val to_json : t -> json
