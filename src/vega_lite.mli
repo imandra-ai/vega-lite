@@ -325,6 +325,7 @@ module Viz : sig
   type 'a with_config =
     ?width:[`container | `int of int] ->
     ?height:[`container | `int of int] ->
+    ?title:string ->
     ?config:Config.t ->
     ?params:Param.t list ->
     'a

@@ -486,6 +486,7 @@ module Viz = struct
     config: Config.t option;
     width:[`container | `int of int] option;
     height:[`container | `int of int] option;
+    title:string option;
     params: Param.t list option;
     view: view;
   }
@@ -512,6 +513,7 @@ module Viz = struct
   type 'a with_config =
     ?width:[`container | `int of int] ->
     ?height:[`container | `int of int] ->
+    ?title:string ->
     ?config:Config.t ->
     ?params:Param.t list ->
     'a
@@ -521,33 +523,33 @@ module Viz = struct
   let bind_f ~var l = bind ~var (List.map (fun f->`Float f) l)
   let bind_s ~var l = bind ~var (List.map (fun s->`String s) l)
 
-  let mk ?width ?height ?config ?params view : t =
-    { width; height; config; params; view }
+  let mk ?width ?height ?title ?config ?params view : t =
+    { width; height; config; title; params; view }
 
-  let repeat ?width ?height ?config ?params ?column ?row ?layer ?bind ~data spec : t =
+  let repeat ?width ?height ?title ?config ?params ?column ?row ?layer ?bind ~data spec : t =
     let is_none = function None -> true | Some _ -> false in
     if is_none column && is_none row && is_none layer && is_none bind then (
       invalid_arg "Viz.repeat: at least one repeating element has to be specified";
     );
     let repeat = R_full {bind; column; row; layer} in
-    mk ?width ?height ?config ?params @@ Repeat {spec; repeat; data; }
+    mk ?width ?height ?title ?config ?params @@ Repeat {spec; repeat; data; }
 
-  let repeat_simple ?width ?height ?config ?params ~repeat:l ~data spec : t =
+  let repeat_simple ?width ?height ?title ?config ?params ~repeat:l ~data spec : t =
     let l = List.map (fun s -> `String s) l in
     let repeat = R_simple l in
-    mk ?width ?height ?config ?params @@ Repeat {spec; repeat; data; }
+    mk ?width ?height ?title ?config ?params @@ Repeat {spec; repeat; data; }
 
-  let layer ?width ?height ?config ?params l : t =
-    mk ?width ?height ?config ?params @@ Layer l
-  let hconcat ?width ?height ?config ?params l =
-    mk ?width ?height ?config ?params @@ Hconcat l
-  let vconcat ?width ?height ?config ?params l =
-      mk ?width ?height ?config ?params @@ Vconcat l
-  let concat ?width ?height ?config ?params ~columns l : t =
-    mk ?width ?height ?config ?params @@ Concat {concat=l; columns}
+  let layer ?width ?height ?title ?config ?params l : t =
+    mk ?width ?height ?config ?title ?params @@ Layer l
+  let hconcat ?width ?height ?title ?config ?params l =
+    mk ?width ?height ?title ?config ?params @@ Hconcat l
+  let vconcat ?width ?height ?title ?config ?params l =
+      mk ?width ?height ?title ?config ?params @@ Vconcat l
+  let concat ?width ?height ?title ?config ?params ~columns l : t =
+    mk ?width ?height ?config ?title ?params @@ Concat {concat=l; columns}
 
-  let make ?width ?height ?config ?params ~data ~mark ?encoding () : t =
-    mk ?width ?height ?config ?params @@ Simple { data=Some data; mark; encoding; }
+  let make ?width ?height ?title ?config ?params ~data ~mark ?encoding () : t =
+    mk ?width ?height ?title ?config ?params @@ Simple { data=Some data; mark; encoding; }
 
   let json_of_repeat (r:repeat_spec) : json =
     match r with
@@ -571,24 +573,28 @@ module Viz = struct
       `Assoc l
 
   let rec to_json (self:t) : json =
+    let {width; height; params; config; title; view} = self in
     let conf = List.flatten [
-        (match self.width with
+        (match width with
          | Some (`container) -> ["width", `String "container"]
          | Some (`int i) -> ["width", `Int i]
          | None -> []);
-        (match self.height with
+        (match height with
          | Some (`container) -> ["height", `String "container"]
          | Some (`int i) -> ["height", `Int i]
          | None -> []);
-        (match self.config with
+        (match config with
          | None -> []
          | Some j -> ["config", j]);
-        (match self.params with
+        (match title with
+         | None -> []
+         | Some s -> ["title", `String s]);
+        (match params with
          | None -> []
          | Some p -> ["params", `List(List.map Param.to_json p)]);
       ]
     in
-    let rest = match self.view with
+    let rest = match view with
       | Simple {mark; data; encoding} ->
         List.flatten [
           ["$schema", `String "https://vega.github.io/schema/vega-lite/v5.json";
