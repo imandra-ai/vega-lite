@@ -11,5 +11,6 @@
   (name vega-lite)
   (synopsis "Generate vega-lite plots")
   (depends
+    (odoc (:with-doc))
     (ocaml (>= "4.08"))
     (yojson (>= "1.6"))))
