@@ -421,7 +421,7 @@ module Input = struct
   let to_json = function
     | Range {min;max;step} ->
       `Assoc ["type", `String "range"; "min", `Int min; "max", `Int max; "step", `Int step]
-    | Select l -> `Assoc ["type", `String "select"; "options", `List l]
+    | Select l -> `Assoc ["type", `String "select"; "options", `List (`Null :: l)]
     | Checkbox -> `Assoc ["type", `String "checkbox"]
     | Radio l -> `Assoc ["type", `String "radio"; "options", `List l]
 end
