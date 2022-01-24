@@ -435,8 +435,8 @@ module Param = struct
   let select ~name ?value sel : t =
     {name; value; select=Some sel; bind=None}
 
-  let bind_scales : t =
-    {name="grid"; value=None; select=Some (Selection.interval ());
+  let bind_scales ~name : t =
+    {name; value=None; select=Some (Selection.interval ());
      bind=Some `Scales}
 
   let to_json {name;value;bind;select} : json =
