@@ -158,17 +158,43 @@ module Data = struct
 end
 
 module Mark = struct
-  type t = [
-    | `Bar
+  type t = {
+    view: view;
+    opts: (string * json) list;
+  }
+  and view = [
     | `Line
+    | `Bar
+    | `Point
+    | `Tick
+    | `Circle
   ]
 
-  let bar : t = `Bar
-  let line : t = `Line
+  let mk_ ?(opts=[]) view : t = {opts; view}
+  let bar ?opts () : t = mk_ ?opts `Bar
+  let line ?(opts=[]) ?(point=false) () : t =
+    let opts = [
+      (if point then ["point", `Bool true] else []);
+      opts;
+    ] |> List.flatten in
+    mk_ ~opts `Line
+  let tick ?opts () : t = mk_ ?opts `Tick
+  let point ?opts () : t = mk_ ?opts `Point
+  let circle ?opts () : t = mk_ ?opts `Circle
 
-  let to_json : t -> json = function
-    | `Bar -> `String "bar"
-    | `Line -> `String "line"
+  let to_json (self:t) : json =
+    let view = `String (
+        match self.view with
+        | `Bar -> "bar"
+        | `Line -> "line"
+        | `Point -> "point"
+        | `Circle -> "circle"
+        | `Tick -> "tick"
+      )
+    in
+    match self.opts with
+    | [] -> view
+    | opts -> `Assoc (("type", view) :: opts)
 end
 
 module Encoding = struct
@@ -401,16 +427,20 @@ module Selection = struct
   type t =
     | Point of {
         on: [`mouseover] option;
+        clear: [`mouseup] option;
       }
     | Interval
 
-  let point ?on () : t = Point {on}
+  let point ?on ?clear () : t = Point {on;clear}
   let interval () : t = Interval
   let to_json = function
-    | Point{on} ->
-      `Assoc
-        (["type", `String "point"] @
-         (match on with None -> [] | Some `mouseover -> ["on", `String "mouseover"]))
+    | Point{on;clear} ->
+      let l = [
+        ["type", `String "point"];
+        (match on with None -> [] | Some `mouseover -> ["on", `String "mouseover"]);
+        (match clear with None -> [] | Some `mouseup -> ["clear", `String "mouseup"]);
+      ] |> List.flatten in
+      `Assoc l
     | Interval ->
       `Assoc ["type", `String "interval"]
 end

@@ -125,13 +125,13 @@ end
 
 (** Mark: the kind of visualization *)
 module Mark : sig
-  type t = [
-    | `Bar
-    | `Line
-  ]
+  type t
 
-  val bar : t
-  val line : t
+  val bar : ?opts:(string*json) list -> unit -> t
+  val line : ?opts:(string*json) list -> ?point:bool -> unit -> t
+  val point : ?opts:(string*json) list -> unit -> t
+  val circle : ?opts:(string*json) list -> unit -> t
+  val tick : ?opts:(string*json) list -> unit -> t
 
   val to_json : t -> json
 end
@@ -269,7 +269,10 @@ module Selection : sig
 
   (* TODO: fields, encodings, etc. *)
 
-  val point : ?on:[`mouseover] -> unit -> t
+  val point :
+    ?on:[`mouseover] ->
+    ?clear: [`mouseup] ->
+    unit -> t
   (** Select discret values *)
 
   val interval : unit -> t
