@@ -136,6 +136,60 @@ module Mark : sig
   val to_json : t -> json
 end
 
+(** Transformations.
+
+    This transforms the data before displaying it.
+    https://vega.github.io/vega-lite/docs/transform.html
+*)
+module Transform : sig
+  type t
+
+  type aggregate_op = [`mean | `max | `min]
+
+  (* TODO
+  type aggregate_axis
+
+  val aggregate_axis :
+    op:aggregate_op ->
+    field:string ->
+    as_:string ->
+    unit -> aggregate_axis
+
+  val aggregate : aggregate_axis list -> groupby:string list -> unit -> t
+  *)
+
+  val aggregate1 : aggregate_op -> t
+
+  val filter : expr:string -> unit -> t
+  (** Filter data.
+      Example: [filter ~expr:"datum.x > 10" ()]. The expression receives
+      the current object as "datum".
+
+      See https://vega.github.io/vega-lite/docs/filter.html *)
+
+  val sample : max:int -> unit -> t
+  (** Random sampling of data. *)
+
+  val other : string -> json -> t
+
+  (* TODO:
+    Bin
+    Calculate
+    Density
+    Flatten
+    Fold
+    Impute
+    Join Aggregate
+    Lookup
+    Pivot
+    Quantile
+    Regression and Loess Regression
+    Stack
+    Time Unit
+    Window
+     *)
+end
+
 (** Encoding data into the channels expected by the chosen {!Mark.t}.
 
     For examples, {!Mark.line} expects channels for "x" and "y" to be defined
@@ -207,6 +261,8 @@ module Encoding : sig
     ?scale:scale ->
     ?title:string ->
     ?aggregate:aggregate ->
+    ?sort:[`ascending | `descending | `chan of [`ascending | `descending] * channel] ->
+    ?transform:Transform.t list ->
     ?opts:(string * json) list ->
     'a
 
@@ -340,6 +396,7 @@ module Viz : sig
   val make :
     (data:Data.t ->
      mark:Mark.t ->
+     ?transform:Transform.t list ->
      ?encoding:Encoding.t ->
      unit ->
      t) with_config

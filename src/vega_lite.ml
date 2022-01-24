@@ -197,6 +197,36 @@ module Mark = struct
     | opts -> `Assoc (("type", view) :: opts)
 end
 
+module Transform = struct
+  type t = string * json
+  let to_json self = self
+
+  type aggregate_op = [`mean | `max | `min]
+  type aggregate_axis = json
+
+  let str_of_aop (op:aggregate_op) : string = match op with
+    | `mean -> "mean"
+    | `min -> "min"
+    | `max -> "max"
+
+  (* TODO
+  let aggregate_axis ~op ~field ~as_ () : aggregate_axis =
+    let op = match op with `mean -> `String "mean" in
+    `Assoc ["op", op; "field", `String field; "as", `String as_]
+
+  let aggregate l ~groupby () : t =
+    "aggregate", `Assoc []
+     *)
+
+  let aggregate1 op : t =
+    "aggregate", `String (str_of_aop op)
+
+  let filter ~expr () = "filter", `Assoc ["expr", `String expr]
+  let sample ~max () = "sample", `Assoc ["sample", `Int max]
+
+  let other name j : t = name, j
+end
+
 module Encoding = struct
   type channel = [
     | `x | `y | `x2 | `y2
@@ -310,6 +340,8 @@ module Encoding = struct
     aggregate: aggregate option;
     title: string option;
     scale: scale option;
+    sort:[`ascending | `descending | `chan of [`ascending | `descending] * channel] option;
+    transform: Transform.t list option;
     opts: (string * json) list;
   }
 
@@ -335,26 +367,29 @@ module Encoding = struct
     ?scale:scale ->
     ?title:string ->
     ?aggregate:aggregate ->
+    ?sort:[`ascending | `descending | `chan of [`ascending | `descending] * channel] ->
+    ?transform:Transform.t list ->
     ?opts:(string * json) list ->
     'a
 
   let field_ channel ?(bin=`bool false) ?scale ?title
-      ?aggregate ?(opts=[]) ~field ~type_ () : channel_def =
-    { channel; def=`Field {bin;title;aggregate;scale;field;type_;opts}; }
+      ?aggregate ?sort ?transform ?(opts=[]) ~field ~type_ () : channel_def =
+    { channel;
+      def=`Field {bin;title;aggregate;scale;field;type_;sort;transform;opts}; }
 
   let field
-      channel ?bin ?scale ?title ?aggregate ?opts ~name ~type_ () : channel_def =
-    field_ channel ?bin ?scale ?title ?aggregate ?opts
+      channel ?bin ?scale ?title ?aggregate ?sort ?transform ?opts ~name ~type_ () : channel_def =
+    field_ channel ?bin ?scale ?title ?aggregate ?sort ?transform ?opts
       ~field:(`Field name) ~type_:(Some type_) ()
 
   let field_repeat_var
-      channel ?bin ?scale ?title ?aggregate ?opts name : channel_def =
-    field_ channel ?bin ?scale ?title ?aggregate ?opts
+      channel ?bin ?scale ?title ?aggregate ?sort ?transform ?opts name : channel_def =
+    field_ channel ?bin ?scale ?title ?aggregate ?sort ?transform ?opts
       ~field:(`Repeat name) ~type_:None ()
 
   let field_repeat
-      channel ?bin ?scale ?title ?aggregate ?opts () : channel_def =
-    field_ channel ?bin ?scale ?title ?aggregate ?opts
+      channel ?bin ?scale ?title ?aggregate ?sort ?transform ?opts () : channel_def =
+    field_ channel ?bin ?scale ?title ?aggregate ?sort ?transform ?opts
       ~field:(`Repeat "repeat") ~type_:None ()
 
   let datum channel d : channel_def =
@@ -374,7 +409,8 @@ module Encoding = struct
       | `Value v -> `Assoc ["value", v]
       | `Datum v -> `Assoc ["datum", v]
       | `Field f ->
-        let {field; type_; bin; scale; title; aggregate; opts; } = f in
+        let {field; type_; bin; scale; title;
+             aggregate; sort; transform; opts; } = f in
         let l = List.flatten [
             ["field", (match field with
               | `Field s -> `String s
@@ -382,8 +418,16 @@ module Encoding = struct
              "bin", json_of_bin bin;
             ];
             (match scale with None -> [] | Some s -> ["scale", json_of_scale s]);
+            (match transform with None -> [] | Some l -> l);
             (match type_ with
              | None -> [] | Some t -> ["type", json_of_field_type t]);
+            (match sort with
+             | None -> []
+             | Some `ascending -> ["sort ?transform", `String "ascending"]
+             | Some `descending -> ["sort ?transform", `String "descending"]
+             | Some (`chan (`ascending, x)) -> ["sort ?transform", `String (str_of_chan x)]
+             | Some (`chan (`descending, x)) -> ["sort ?transform", `String ("-"^str_of_chan x)]
+            );
             (match title with None -> [] | Some s -> ["title", `String s]);
             (match aggregate with
              | None -> [] | Some s -> ["aggregate", json_of_aggregate s]);
@@ -558,6 +602,7 @@ module Viz = struct
     | Simple of {
         data: Data.t option;
         mark: Mark.t;
+        transform: Transform.t list option;
         encoding: Encoding.t option;
       }
     | Layer of t list
@@ -612,8 +657,9 @@ module Viz = struct
   let concat ?width ?height ?title ?config ?params ~columns l : t =
     mk ?width ?height ?config ?title ?params @@ Concat {concat=l; columns}
 
-  let make ?width ?height ?title ?config ?params ~data ~mark ?encoding () : t =
-    mk ?width ?height ?title ?config ?params @@ Simple { data=Some data; mark; encoding; }
+  let make ?width ?height ?title ?config ?params ~data ~mark ?transform ?encoding () : t =
+    mk ?width ?height ?title ?config ?params @@
+    Simple { data=Some data; mark; transform; encoding; }
 
   let json_of_repeat (r:repeat_spec) : json =
     match r with
@@ -659,11 +705,14 @@ module Viz = struct
       ]
     in
     let rest = match view with
-      | Simple {mark; data; encoding} ->
+      | Simple {mark; data; transform; encoding} ->
         List.flatten [
           ["$schema", `String "https://vega.github.io/schema/vega-lite/v5.json";
            "mark", Mark.to_json mark;
           ];
+          (match transform with
+           | None -> []
+           | Some l -> l);
           (match encoding with
            | None -> []
            | Some e -> ["encoding", Encoding.to_json e]);
