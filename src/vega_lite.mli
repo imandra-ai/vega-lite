@@ -186,15 +186,7 @@ module Encoding : sig
   (* TODO: sort *)
   (* TODO: condition *)
 
-  type field_def = {
-    field: [`Field of string | `Repeat of string];
-    type_: field_type option;
-    bin: bin;
-    aggregate: aggregate option;
-    title: string option;
-    scale: scale option;
-  }
-
+  type field_def
   type value = json
   type datum = json
 
@@ -215,6 +207,7 @@ module Encoding : sig
     ?scale:scale ->
     ?title:string ->
     ?aggregate:aggregate ->
+    ?opts:(string * json) list ->
     'a
 
   (** A field, with a name and type, typically binding a field

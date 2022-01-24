@@ -310,6 +310,7 @@ module Encoding = struct
     aggregate: aggregate option;
     title: string option;
     scale: scale option;
+    opts: (string * json) list;
   }
 
   type value = json
@@ -334,25 +335,26 @@ module Encoding = struct
     ?scale:scale ->
     ?title:string ->
     ?aggregate:aggregate ->
+    ?opts:(string * json) list ->
     'a
 
   let field_ channel ?(bin=`bool false) ?scale ?title
-      ?aggregate ~field ~type_ () : channel_def =
-    { channel; def=`Field {bin;title;aggregate;scale;field;type_}; }
+      ?aggregate ?(opts=[]) ~field ~type_ () : channel_def =
+    { channel; def=`Field {bin;title;aggregate;scale;field;type_;opts}; }
 
   let field
-      channel ?bin ?scale ?title ?aggregate ~name ~type_ () : channel_def =
-    field_ channel ?bin ?scale ?title ?aggregate
+      channel ?bin ?scale ?title ?aggregate ?opts ~name ~type_ () : channel_def =
+    field_ channel ?bin ?scale ?title ?aggregate ?opts
       ~field:(`Field name) ~type_:(Some type_) ()
 
   let field_repeat_var
-      channel ?bin ?scale ?title ?aggregate name : channel_def =
-    field_ channel ?bin ?scale ?title ?aggregate
+      channel ?bin ?scale ?title ?aggregate ?opts name : channel_def =
+    field_ channel ?bin ?scale ?title ?aggregate ?opts
       ~field:(`Repeat name) ~type_:None ()
 
   let field_repeat
-      channel ?bin ?scale ?title ?aggregate () : channel_def =
-    field_ channel ?bin ?scale ?title ?aggregate
+      channel ?bin ?scale ?title ?aggregate ?opts () : channel_def =
+    field_ channel ?bin ?scale ?title ?aggregate ?opts
       ~field:(`Repeat "repeat") ~type_:None ()
 
   let datum channel d : channel_def =
@@ -372,7 +374,7 @@ module Encoding = struct
       | `Value v -> `Assoc ["value", v]
       | `Datum v -> `Assoc ["datum", v]
       | `Field f ->
-        let {field; type_; bin; scale; title; aggregate } = f in
+        let {field; type_; bin; scale; title; aggregate; opts; } = f in
         let l = List.flatten [
             ["field", (match field with
               | `Field s -> `String s
@@ -385,6 +387,7 @@ module Encoding = struct
             (match title with None -> [] | Some s -> ["title", `String s]);
             (match aggregate with
              | None -> [] | Some s -> ["aggregate", json_of_aggregate s]);
+            opts;
           ] in
         `Assoc l
     in
