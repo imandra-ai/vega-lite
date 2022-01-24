@@ -266,7 +266,7 @@ module Selection : sig
     ?on:[`mouseover] ->
     ?clear: [`mouseup] ->
     unit -> t
-  (** Select discret values *)
+  (** Select discret values. *)
 
   val interval : unit -> t
   (** Continuous range *)
@@ -286,9 +286,18 @@ module Param : sig
   val input : name:string -> ?value:json -> Input.t -> t
   (** Parameter bound to an input *)
 
-  val select : name:string -> ?value:json -> Selection.t -> t
+  val select :
+    name:string -> ?value:json ->
+    ?bind:Input.t ->
+    ?bind_by_name:(string * Input.t) list ->
+    Selection.t -> t
   (** Selection parameter.
-      See https://vega.github.io/vega-lite/docs/selection.html *)
+      See https://vega.github.io/vega-lite/docs/selection.html
+
+      @param bind binds input to the results of the selection
+      @param bind_by_name binds inputs to the results of the selection
+      @raise Invalid_argument if both [bind] and [bind_by_name] are specified.
+  *)
 
   val bind_scales : ?name:string -> unit -> t
   (** Bind selection to scale, to zoom around the plot.

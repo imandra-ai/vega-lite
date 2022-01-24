@@ -458,15 +458,21 @@ module Param = struct
   type t = {
     name: string;
     value: json option;
-    bind: [`Input of Input.t | `Scales] option;
+    bind: [`Input of Input.t | `Inputs of (string * Input.t) list | `Scales] option;
     select: Selection.t option;
   }
 
   let input ~name ?value input : t =
     {name; value; bind=Some (`Input input); select=None}
 
-  let select ~name ?value sel : t =
-    {name; value; select=Some sel; bind=None}
+  let select ~name ?value ?bind ?bind_by_name sel : t =
+    let bind = match bind, bind_by_name with
+      | Some _, Some _ -> invalid_arg "Param.select: bind and bind_by_name are exclusive";
+      | Some i, None -> Some (`Input i)
+      | None, Some l -> Some (`Inputs l)
+      | None, None -> None
+    in
+    {name; value; select=Some sel; bind}
 
   let bind_scales ?(name="grid") () : t =
     {name; value=None; select=Some (Selection.interval ());
@@ -478,6 +484,8 @@ module Param = struct
       | Some sel -> ["select", Selection.to_json sel]
     and bind_pair = match bind with
       | Some (`Input i) -> ["bind", Input.to_json i]
+      | Some (`Inputs l) ->
+        ["bind", `Assoc (List.map (fun (s,i) -> s, Input.to_json i) l)]
       | Some `Scales -> ["bind", `String "scales"]
       | None -> []
     in
