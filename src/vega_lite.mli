@@ -290,9 +290,9 @@ module Param : sig
   (** Selection parameter.
       See https://vega.github.io/vega-lite/docs/selection.html *)
 
-  val bind_scales : name:string -> t
+  val bind_scales : ?name:string -> unit -> t
   (** Bind selection to scale, to zoom around the plot.
-      @param name the name of the "x" axis. *)
+      @param name the parameter name, by default "grid". *)
 
   val to_json : t -> json
 end

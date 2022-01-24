@@ -468,7 +468,7 @@ module Param = struct
   let select ~name ?value sel : t =
     {name; value; select=Some sel; bind=None}
 
-  let bind_scales ~name : t =
+  let bind_scales ?(name="grid") () : t =
     {name; value=None; select=Some (Selection.interval ());
      bind=Some `Scales}
 
