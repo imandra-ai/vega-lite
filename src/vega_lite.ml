@@ -427,25 +427,48 @@ module Input = struct
 end
 
 module Selection = struct
-  type t =
-    | Point of {
-        on: [`mouseover] option;
-        clear: [`mouseup] option;
-      }
+  type view =
+    | Point
     | Interval
 
-  let point ?on ?clear () : t = Point {on;clear}
-  let interval () : t = Interval
-  let to_json = function
-    | Point{on;clear} ->
-      let l = [
-        ["type", `String "point"];
-        (match on with None -> [] | Some `mouseover -> ["on", `String "mouseover"]);
-        (match clear with None -> [] | Some `mouseup -> ["clear", `String "mouseup"]);
-      ] |> List.flatten in
-      `Assoc l
-    | Interval ->
-      `Assoc ["type", `String "interval"]
+  type t = {
+    on: [`mouseover] option;
+    clear: [`mouseup] option;
+    fields: string list option;
+    opts:(string * json) list;
+    view: view;
+  }
+
+  type 'a with_opts =
+    ?on:[`mouseover] ->
+    ?clear: [`mouseup] ->
+    ?fields:string list ->
+    ?opts:(string * json) list ->
+    'a
+
+  let mk ?on ?clear ?fields ?(opts=[]) view : t =
+    { on; clear; fields; view; opts }
+
+  let point ?on ?clear ?fields ?opts () : t =
+    mk ?on ?clear ?fields ?opts Point
+  let interval ?on ?clear ?fields ?opts () : t =
+    mk ?on ?clear ?fields ?opts Interval
+
+  let to_json {on;clear;fields;view;opts} =
+    let ty = match view with
+      | Point -> "point"
+      | Interval -> "interval"
+    in
+    let l = [
+      ["type", `String ty];
+      (match on with None -> [] | Some `mouseover -> ["on", `String "mouseover"]);
+      (match clear with None -> [] | Some `mouseup -> ["clear", `String "mouseup"]);
+      (match fields with
+       | None -> []
+       | Some l -> ["fields", `List (List.map (fun s -> `String s) l)]);
+      opts;
+    ] |> List.flatten in
+    `Assoc l
 end
 
 (** Parameters.

@@ -260,15 +260,17 @@ end
 module Selection : sig
   type t
 
-  (* TODO: fields, encodings, etc. *)
-
-  val point :
+  type 'a with_opts =
     ?on:[`mouseover] ->
     ?clear: [`mouseup] ->
-    unit -> t
+    ?fields:string list ->
+    ?opts:(string * json) list ->
+    'a
+
+  val point : (unit -> t) with_opts
   (** Select discret values. *)
 
-  val interval : unit -> t
+  val interval : (unit -> t) with_opts
   (** Continuous range *)
 
   val to_json : t -> json
