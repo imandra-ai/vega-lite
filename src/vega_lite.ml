@@ -705,7 +705,7 @@ module Viz = struct
         ] in
       `Assoc l
 
-  let rec to_json (self:t) : json =
+  let rec to_json_assoc (self:t) : (string * json) list =
     let {width; height; params; config; title; view} = self in
     let conf = List.flatten [
         (match width with
@@ -745,25 +745,35 @@ module Viz = struct
         ]
 
       | Layer l ->
-        ["layer", `List (List.map to_json l)]
+        ["layer", `List (List.map to_json_sub l)]
 
       | Hconcat l ->
-        ["hconcat", `List (List.map to_json l)]
+        ["hconcat", `List (List.map to_json_sub l)]
 
       | Vconcat l ->
-        ["vconcat", `List (List.map to_json l)]
+        ["vconcat", `List (List.map to_json_sub l)]
 
       | Concat {concat=l; columns} ->
-        ["concat", `List (List.map to_json l); "columns", `Int columns]
+        ["concat", `List (List.map to_json_sub l); "columns", `Int columns]
 
       | Repeat {data; repeat; spec} ->
         [
           "data", Data.to_json data;
           "repeat", json_of_repeat repeat;
-          "spec", to_json spec;
+          "spec", to_json_sub spec;
         ]
     in
-    `Assoc (List.rev_append conf rest)
+    List.rev_append conf rest
+
+  and to_json_sub self : json =
+    `Assoc (to_json_assoc self)
+
+  let to_json self : json =
+    let l = to_json_assoc self in
+    let l = [
+      "$schema", `String "https://vega.github.io/schema/vega-lite/v5.json";
+    ] @ l in
+    `Assoc l
 
   let to_json_str self = Yojson.Basic.pretty_to_string @@ to_json self
 
