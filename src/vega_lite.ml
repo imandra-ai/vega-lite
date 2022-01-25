@@ -198,22 +198,51 @@ module Mark = struct
     | opts -> `Assoc (("type", view) :: opts)
 end
 
+module Aggregate = struct
+  type t = [
+    | `mean | `sum | `product | `median | `min | `max | `count
+    | `distinct | `argmin | `argmax | `values
+    | `missing | `variance | `variancep | `stdev | `stdevp
+    | `q1 | `q3 | `ci0 | `ci1 | `valid
+    | `other of json
+  ]
+
+  let to_json : t -> json = function
+    | `mean -> `String "mean"
+    | `sum -> `String "sum"
+    | `product -> `String "product"
+    | `median -> `String "median"
+    | `min -> `String "min"
+    | `max -> `String "max"
+    | `count -> `String "count"
+    | `distinct -> `String "distinct"
+    | `argmin -> `String "argmin"
+    | `argmax -> `String "argmax"
+    | `values -> `String "values"
+    | `missing -> `String "missing"
+    | `variance -> `String "variance"
+    | `variancep -> `String "variancep"
+    | `stdev -> `String "stdev"
+    | `stdevp -> `String "stdevp"
+    | `q1 -> `String "q1"
+    | `q3 -> `String "q3"
+    | `ci0 -> `String "ci0"
+    | `ci1 -> `String "ci1"
+    | `valid -> `String "valid"
+    | `other j -> j
+end
+
 module Transform = struct
   type t = (string * json) list
-  let to_json self : json = `Assoc self
 
-  type aggregate_op = [`mean | `max | `min]
+  (* TODO
   type aggregate_axis = json
-
-  let str_of_aop (op:aggregate_op) : string = match op with
-    | `mean -> "mean"
-    | `min -> "min"
-    | `max -> "max"
+     *)
 
   type window_axis = (string * json) list
 
   let window_axis ?(opts=[]) ~op ~field ~as_ () : window_axis =
-    ["op", `String (str_of_aop op);
+    ["op", Aggregate.to_json op;
      "field", `String field;
      "as", `String as_;
     ] @ opts
@@ -239,7 +268,7 @@ module Transform = struct
      *)
 
   let aggregate1 ?(opts=[]) op : t =
-    ["aggregate", `String (str_of_aop op)] @ opts
+    ["aggregate", Aggregate.to_json op] @ opts
 
   let filter ?(opts=[]) ~expr () = ["filter", `Assoc ["expr", `String expr]] @ opts
   let sample ?(opts=[]) ~max () = ["sample", `Assoc ["sample", `Int max]] @ opts
@@ -355,18 +384,7 @@ module Encoding = struct
     | `bin_with fields -> `Assoc (("bin", `Bool true) :: fields)
     | `other j -> j
 
-  type aggregate = [
-    | `mean | `sum | `median | `min | `max | `count | `other of json
-  ]
-
-  let json_of_aggregate : aggregate -> json = function
-    | `mean -> `String "mean"
-    | `sum -> `String "sum"
-    | `median -> `String "median"
-    | `min -> `String "min"
-    | `max -> `String "max"
-    | `count -> `String "count"
-    | `other j -> j
+  type aggregate = Aggregate.t
 
   (* TODO: timeUnit *)
   (* TODO: axis *)
@@ -473,7 +491,7 @@ module Encoding = struct
             );
             (match title with None -> [] | Some s -> ["title", `String s]);
             (match aggregate with
-             | None -> [] | Some s -> ["aggregate", json_of_aggregate s]);
+             | None -> [] | Some s -> ["aggregate", Aggregate.to_json s]);
             opts;
           ] in
         `Assoc l

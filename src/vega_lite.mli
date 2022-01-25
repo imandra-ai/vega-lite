@@ -136,6 +136,16 @@ module Mark : sig
   val to_json : t -> json
 end
 
+module Aggregate : sig
+  type t = [
+    | `mean | `sum | `product | `median | `min | `max | `count
+    | `distinct | `argmin | `argmax | `values
+    | `missing | `variance | `variancep | `stdev | `stdevp
+    | `q1 | `q3 | `ci0 | `ci1 | `valid
+    | `other of json
+  ]
+end
+
 (** Transformations.
 
     This transforms the data before displaying it.
@@ -143,8 +153,6 @@ end
 *)
 module Transform : sig
   type t
-
-  type aggregate_op = [`mean | `max | `min]
 
   (* TODO
   type aggregate_axis
@@ -160,7 +168,7 @@ module Transform : sig
 
   val aggregate1 :
     ?opts:(string * json) list ->
-    aggregate_op -> t
+    Aggregate.t -> t
 
   val filter :
     ?opts:(string * json) list ->
@@ -180,7 +188,7 @@ module Transform : sig
 
   val window_axis :
     ?opts:(string * json) list ->
-    op:aggregate_op ->
+    op:Aggregate.t ->
     field:string ->
     as_:string ->
     unit ->
@@ -265,9 +273,7 @@ module Encoding : sig
     | `other of json
   ]
 
-  type aggregate = [
-    | `mean | `sum | `median | `min | `max | `count | `other of json
-  ]
+  type aggregate = Aggregate.t
 
   (* TODO: timeUnit *)
   (* TODO: axis *)
