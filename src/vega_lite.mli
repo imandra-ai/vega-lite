@@ -133,6 +133,13 @@ module Mark : sig
   val circle : ?opts:(string*json) list -> unit -> t
   val tick : ?opts:(string*json) list -> unit -> t
 
+  val error_band :
+    ?opts:(string*json) list ->
+    ?extent:[`ci | `stderr | `stdev | `iqr] ->
+    unit -> t
+
+  val other : ?opts:(string*json) list -> type_:string -> unit -> t
+
   val to_json : t -> json
 end
 

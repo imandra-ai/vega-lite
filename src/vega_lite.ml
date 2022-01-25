@@ -169,6 +169,8 @@ module Mark = struct
     | `Point
     | `Tick
     | `Circle
+    | `Errorband
+    | `Other of string
   ]
 
   let mk_ ?(opts=[]) view : t = {opts; view}
@@ -183,6 +185,22 @@ module Mark = struct
   let point ?opts () : t = mk_ ?opts `Point
   let circle ?opts () : t = mk_ ?opts `Circle
 
+  let error_band ?(opts=[]) ?extent () : t =
+    let opts = match extent with
+      | None -> opts
+      | Some e ->
+        let e = match e with
+          | `ci -> "ci"
+          | `stderr -> "stderr"
+          | `stdev -> "stdev"
+          | `iqr -> "iqr"
+        in
+        ("extent", `String e) :: opts
+    in
+    mk_  ~opts `Errorband
+
+  let other ?opts ~type_ () : t = mk_ ?opts (`Other type_)
+
   let to_json (self:t) : json =
     let view = `String (
         match self.view with
@@ -191,6 +209,8 @@ module Mark = struct
         | `Point -> "point"
         | `Circle -> "circle"
         | `Tick -> "tick"
+        | `Errorband -> "errorband"
+        | `Other s -> s
       )
     in
     match self.opts with
