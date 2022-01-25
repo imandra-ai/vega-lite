@@ -31,6 +31,11 @@ module Data_format = struct
     ])
 end
 
+let[@inline] f2j f = `Float f
+let[@inline] i2j x = `Int x
+let[@inline] s2j s = `String s
+let[@inline] assoc2j l = `Assoc l
+
 module Values = struct
   type t = [
     | `String of string
@@ -71,10 +76,6 @@ module Values = struct
 
   let rows arr = `Array (Array.map Row.to_json arr)
   let rows_l l = rows @@ Array.of_list l
-
-  let[@inline] f2j f = `Float f
-  let[@inline] i2j x = `Int x
-  let[@inline] s2j s = `String s
 
   let col1 c : t =
     `Array (
@@ -209,6 +210,25 @@ module Transform = struct
     | `min -> "min"
     | `max -> "max"
 
+  type window_axis = (string * json) list
+
+  let window_axis ?(opts=[]) ~op ~field ~as_ () : window_axis =
+    ["op", `String (str_of_aop op);
+     "field", `String field;
+     "as", `String as_;
+    ] @ opts
+
+  let window_axis_other l : window_axis = l
+
+  let window ?(opts=[]) ?groupby ?frame ws : t =
+    let ws = List.map assoc2j ws in
+    List.flatten [
+      ["window", `List ws];
+      (match groupby with None -> [] | Some l->["groupby", `List (List.map s2j l)]);
+      (match frame with None -> [] | Some (i,j)->["frame", `List [`Int i; `Int j]]);
+      opts;
+    ]
+
   (* TODO
   let aggregate_axis ~op ~field ~as_ () : aggregate_axis =
     let op = match op with `mean -> `String "mean" in
@@ -218,11 +238,11 @@ module Transform = struct
     "aggregate", `Assoc []
      *)
 
-  let aggregate1 op : t =
-    ["aggregate", `String (str_of_aop op)]
+  let aggregate1 ?(opts=[]) op : t =
+    ["aggregate", `String (str_of_aop op)] @ opts
 
-  let filter ~expr () = ["filter", `Assoc ["expr", `String expr]]
-  let sample ~max () = ["sample", `Assoc ["sample", `Int max]]
+  let filter ?(opts=[]) ~expr () = ["filter", `Assoc ["expr", `String expr]] @ opts
+  let sample ?(opts=[]) ~max () = ["sample", `Assoc ["sample", `Int max]] @ opts
 
   let other j : t = j
 end
@@ -481,9 +501,9 @@ module Input = struct
     Range {min; max; step}
 
   let select l = Select l
-  let select_str l = select (List.map (fun s -> `String s) l)
+  let select_str l = select (List.map s2j l)
   let checkbox = Checkbox
-  let radio l = Radio (List.map (fun s -> `String s) l)
+  let radio l = Radio (List.map s2j l)
 
   let to_json = function
     | Range {min;max;step} ->
@@ -532,7 +552,7 @@ module Selection = struct
       (match clear with None -> [] | Some `mouseup -> ["clear", `String "mouseup"]);
       (match fields with
        | None -> []
-       | Some l -> ["fields", `List (List.map (fun s -> `String s) l)]);
+       | Some l -> ["fields", `List (List.map s2j l)]);
       opts;
     ] |> List.flatten in
     `Assoc l
@@ -651,9 +671,9 @@ module Viz = struct
     'a
 
   let bind ~var l : repeat_binding = {var; values=l}
-  let bind_i ~var l = bind ~var (List.map (fun i->`Int i) l)
-  let bind_f ~var l = bind ~var (List.map (fun f->`Float f) l)
-  let bind_s ~var l = bind ~var (List.map (fun s->`String s) l)
+  let bind_i ~var l = bind ~var (List.map i2j l)
+  let bind_f ~var l = bind ~var (List.map f2j l)
+  let bind_s ~var l = bind ~var (List.map s2j l)
 
   let mk ?width ?height ?title ?config ?params view : t =
     { width; height; config; title; params; view }
@@ -693,7 +713,7 @@ module Viz = struct
       let js_binding (r:repeat_binding) : _ * json = r.var, `List r.values in
       let js_strl name = function
         | None -> []
-        | Some l -> [name, `List (List.map (fun s->`String s) l)]
+        | Some l -> [name, `List (List.map s2j l)]
       in
       let l = List.flatten [
           js_strl "column" column;

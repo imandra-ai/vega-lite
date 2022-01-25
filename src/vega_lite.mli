@@ -158,17 +158,49 @@ module Transform : sig
   val aggregate : aggregate_axis list -> groupby:string list -> unit -> t
   *)
 
-  val aggregate1 : aggregate_op -> t
+  val aggregate1 :
+    ?opts:(string * json) list ->
+    aggregate_op -> t
 
-  val filter : expr:string -> unit -> t
+  val filter :
+    ?opts:(string * json) list ->
+    expr:string -> unit -> t
   (** Filter data.
       Example: [filter ~expr:"datum.x > 10" ()]. The expression receives
       the current object as "datum".
 
       See https://vega.github.io/vega-lite/docs/filter.html *)
 
-  val sample : max:int -> unit -> t
+  val sample :
+    ?opts:(string * json) list ->
+    max:int -> unit -> t
   (** Random sampling of data. *)
+
+  type window_axis
+
+  val window_axis :
+    ?opts:(string * json) list ->
+    op:aggregate_op ->
+    field:string ->
+    as_:string ->
+    unit ->
+    window_axis
+  (** Aggregate using [op] on the given field, resulting into a
+      new field [as_]. *)
+
+  val window_axis_other : (string * json) list -> window_axis
+  (** Escape hatch *)
+
+  val window :
+    ?opts:(string * json) list ->
+    ?groupby:string list ->
+    ?frame:(int * int) ->
+    window_axis list ->
+    t
+  (** Window transform.
+      For example,
+      [window ~groupby:["foo"] [window_axis ~op:`mean ~field:["bar"] ~as_:"bar_avg"]]
+  *)
 
   val other : (string * json) list -> t
 
