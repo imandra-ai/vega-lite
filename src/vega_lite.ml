@@ -325,11 +325,15 @@ module Encoding = struct
   type bin = [
     | `bool of bool
     | `binned (** already binned *)
+    | `bin_with of (string * json) list (* "bin": true + fields *)
+    | `other of json
   ]
 
   let json_of_bin : bin -> json = function
     | `bool b -> `Bool b
     | `binned -> `String "binned"
+    | `bin_with fields -> `Assoc (("bin", `Bool true) :: fields)
+    | `other j -> j
 
   type aggregate = [
     | `mean | `sum | `median | `min | `max | `count | `other of json

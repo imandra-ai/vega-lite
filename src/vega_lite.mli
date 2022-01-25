@@ -229,6 +229,8 @@ module Encoding : sig
   type bin = [
     | `bool of bool
     | `binned (** already binned *)
+    | `bin_with of (string * json) list (* "bin": true + fields *)
+    | `other of json
   ]
 
   type aggregate = [
