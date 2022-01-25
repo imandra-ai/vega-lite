@@ -170,7 +170,7 @@ module Transform : sig
   val sample : max:int -> unit -> t
   (** Random sampling of data. *)
 
-  val other : string -> json -> t
+  val other : (string * json) list -> t
 
   (* TODO:
     Bin

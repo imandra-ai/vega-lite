@@ -198,8 +198,8 @@ module Mark = struct
 end
 
 module Transform = struct
-  type t = string * json
-  let to_json self = self
+  type t = (string * json) list
+  let to_json self : json = `Assoc self
 
   type aggregate_op = [`mean | `max | `min]
   type aggregate_axis = json
@@ -219,12 +219,12 @@ module Transform = struct
      *)
 
   let aggregate1 op : t =
-    "aggregate", `String (str_of_aop op)
+    ["aggregate", `String (str_of_aop op)]
 
-  let filter ~expr () = "filter", `Assoc ["expr", `String expr]
-  let sample ~max () = "sample", `Assoc ["sample", `Int max]
+  let filter ~expr () = ["filter", `Assoc ["expr", `String expr]]
+  let sample ~max () = ["sample", `Assoc ["sample", `Int max]]
 
-  let other name j : t = name, j
+  let other j : t = j
 end
 
 module Encoding = struct
@@ -441,7 +441,7 @@ module Encoding = struct
              "bin", json_of_bin bin;
             ];
             (match scale with None -> [] | Some s -> ["scale", json_of_scale s]);
-            (match transform with None -> [] | Some l -> l);
+            (match transform with None -> [] | Some l -> List.flatten l);
             (match type_ with
              | None -> [] | Some t -> ["type", json_of_field_type t]);
             (match sort with
@@ -730,12 +730,12 @@ module Viz = struct
     let rest = match view with
       | Simple {mark; data; transform; encoding} ->
         List.flatten [
-          ["$schema", `String "https://vega.github.io/schema/vega-lite/v5.json";
-           "mark", Mark.to_json mark;
-          ];
+          [ "mark", Mark.to_json mark; ];
           (match transform with
            | None -> []
-           | Some l -> l);
+           | Some l ->
+             let l = List.map (fun l -> `Assoc l) l in
+             ["transform", `List l]);
           (match encoding with
            | None -> []
            | Some e -> ["encoding", Encoding.to_json e]);
