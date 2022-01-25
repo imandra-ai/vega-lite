@@ -220,6 +220,9 @@ module Encoding : sig
   ]
 
   type scale = [
+    | `linear | `pow
+    | `sqrt | `symlog | `log | `time | `utc | `ordinal | `band | `point
+    | `bin_ordinal | `quantile | `quantize | `threshold
     | `other of json
   ]
 
@@ -237,7 +240,6 @@ module Encoding : sig
   (* TODO: legend *)
   (* TODO: format *)
   (* TODO: stack *)
-  (* TODO: sort *)
   (* TODO: condition *)
 
   type field_def

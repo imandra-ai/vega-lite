@@ -297,10 +297,27 @@ module Encoding = struct
     | `other j -> j
 
   type scale = [
+    | `linear | `pow
+    | `sqrt | `symlog | `log | `time | `utc | `ordinal | `band | `point
+    | `bin_ordinal | `quantile | `quantize | `threshold
     | `other of json
   ]
 
   let json_of_scale : scale -> json = function
+    | `linear -> `String "linear"
+    | `pow -> `String "pow"
+    | `sqrt -> `String "sqrt"
+    | `symlog -> `String "symlog"
+    | `log -> `String "log"
+    | `time -> `String "time"
+    | `utc -> `String "utc"
+    | `ordinal -> `String "ordinal"
+    | `band -> `String "band"
+    | `point -> `String "point"
+    | `bin_ordinal -> `String "bin_ordinal"
+    | `quantile -> `String "quantile"
+    | `quantize -> `String "quantize"
+    | `threshold -> `String "threshold"
     | `other j -> j
 
   type bin = [
