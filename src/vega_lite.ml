@@ -297,27 +297,29 @@ module Encoding = struct
     | `other j -> j
 
   type scale = [
-    | `linear | `pow
-    | `sqrt | `symlog | `log | `time | `utc | `ordinal | `band | `point
+    | `linear | `pow | `sqrt | `symlog | `log
+    | `time | `utc | `ordinal | `band | `point
     | `bin_ordinal | `quantile | `quantize | `threshold
     | `other of json
   ]
 
-  let json_of_scale : scale -> json = function
-    | `linear -> `String "linear"
-    | `pow -> `String "pow"
-    | `sqrt -> `String "sqrt"
-    | `symlog -> `String "symlog"
-    | `log -> `String "log"
-    | `time -> `String "time"
-    | `utc -> `String "utc"
-    | `ordinal -> `String "ordinal"
-    | `band -> `String "band"
-    | `point -> `String "point"
-    | `bin_ordinal -> `String "bin_ordinal"
-    | `quantile -> `String "quantile"
-    | `quantize -> `String "quantize"
-    | `threshold -> `String "threshold"
+  let json_of_scale : scale -> json =
+    let mkty s = `Assoc ["type", `String s] in
+    function
+    | `linear -> mkty "linear"
+    | `pow -> mkty "pow"
+    | `sqrt -> mkty "sqrt"
+    | `symlog -> mkty "symlog"
+    | `log -> mkty "log"
+    | `time -> mkty "time"
+    | `utc -> mkty "utc"
+    | `ordinal -> mkty "ordinal"
+    | `band -> mkty "band"
+    | `point -> mkty "point"
+    | `bin_ordinal -> mkty "bin_ordinal"
+    | `quantile -> mkty "quantile"
+    | `quantize -> mkty "quantize"
+    | `threshold -> mkty "threshold"
     | `other j -> j
 
   type bin = [
